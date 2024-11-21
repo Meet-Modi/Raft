@@ -45,7 +45,7 @@ func (network *RaftNetwork) AllocateAvailableEndpoint() error {
 	network.mu.Lock()
 	defer network.mu.Unlock()
 
-	network.RefreshPeerData()
+	network.RefreshPeerData(true)
 
 	if network.isBootNode {
 		network.Peers[network.PeerId] = peerData{
