@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package network;
+
+option go_package = "github.com/meet-modi/Raft/proto/network";
+
+message RaftNetworkDataRequest {}
+
+message PeerData {
+    string endpoint = 1;
+    int32 port = 2;
+}
+
+message RaftNetworkDataResponse {
+    string peerId = 1;
+    map<string, PeerData> peers = 2;
+    string currentLeaderId = 3;
+    int32 currentLeaderPort = 4;
+    bool isBootNode = 5;
+    string bootNodeEndpoint = 6;
+    int32 bootNodePort = 7;
+}
+
+service RaftServer {
+	rpc GetRaftNetworkData (RaftNetworkDataRequest) returns (RaftNetworkDataResponse) {}
+}
