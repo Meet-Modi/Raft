@@ -8,6 +8,7 @@ raft/
 - control/
     - raft_node.go
 - network/
+    - rpc.go
 - tests/
 main.go
 go.mod
