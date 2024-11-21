@@ -44,11 +44,6 @@ func InitialiseRaftServer(rn *consensus.RaftNode, isBootNode bool) (*RaftRPCServ
 		},
 	}
 
-	// TODO : First get data from all other peers if not bootnode.
-	if !isBootNode {
-		raftRPCServer.raftNetwork.RefreshPeerData()
-	}
-
 	rpc.Register(raftRPCServer)
 	rpc.HandleHTTP()
 	err := raftRPCServer.raftNetwork.AllocateAvailableEndpoint()

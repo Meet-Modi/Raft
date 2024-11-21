@@ -45,6 +45,8 @@ func (network *RaftNetwork) AllocateAvailableEndpoint() error {
 	network.mu.Lock()
 	defer network.mu.Unlock()
 
+	network.RefreshPeerData()
+
 	if network.isBootNode {
 		network.Peers[network.PeerId] = peerData{
 			port:     config.BootNodePort,
@@ -77,30 +79,37 @@ func (network *RaftNetwork) AllocateAvailableEndpoint() error {
 	return nil
 }
 
-func (network *RaftNetwork) RefreshPeerData() {
-	// Pick any random peer and Check the peer nodes and update the data
-	raftPeers := network.Peers
-	keys := make([]string, 0, len(raftPeers))
-	for k := range raftPeers {
-		keys = append(keys, k)
-	}
-	for {
-		// Pick any random peer
-		peerId := keys[rand.Intn(len(keys))]
-		peerEndpoint := network.Peers[peerId].endpoint
-		peerPort := network.Peers[peerId].port
+func (network *RaftNetwork) RefreshPeerData(initialisation bool) {
+	// can be a boot node in initialisation phase -> network table will be empty
+	// can be a non boot node in initialisation phase -> get data from boot node
+	// can be a boot in normal phase -> get data from any known node
+	// can be a non boot in normal phase -> get data from any known node
 
-		// Get the data from the peer
-		args := ExampleArgs{}
-		var reply RaftNetwork
-		client, err := rpc.DialHTTP("tcp", peerEndpoint+":"+strconv.Itoa(peerPort))
-		if err != nil {
-			log.Fatal("dialing:", err)
+	if initialisation {
+		if network.isBootNode {
+			return
+		} else {
+			err := MakeRPCRequest(network.bootNodeEndpoint, network.bootNodePort, "RaftRPCServer.GetRaftNetwork", &ExampleArgs{}, network)
+			if err != nil {
+				log.Fatal("Error in getting network data from boot node")
+			}
 		}
-		err = client.Call("RaftRPCServer.GetRaftNetwork", args, &reply)
-		if err != nil {
-			log.Fatal("arith error:", err)
+	} else {
+		// Get data from any known node
+		for _, peer := range network.Peers {
+			err := MakeRPCRequest(peer.endpoint, peer.port, "RaftRPCServer.GetRaftNetwork", &ExampleArgs{}, network)
+			if err != nil {
+				log.Fatal("Error in getting network data from known node")
+			}
 		}
-		log.Printf("%d", reply)
 	}
+}
+
+func MakeRPCRequest(endpoint string, port int, method string, args interface{}, reply interface{}) error {
+	client, err := rpc.DialHTTP("tcp", endpoint+":"+strconv.Itoa(port))
+	if err != nil {
+		log.Fatal("dialing:", err)
+	}
+	err = client.Call(method, args, reply)
+	return err
 }
