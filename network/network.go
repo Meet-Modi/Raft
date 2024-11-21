@@ -3,7 +3,6 @@ package network
 import (
 	"Raft/config"
 	pb "Raft/proto"
-	"Raft/utils"
 	"context"
 	"fmt"
 	"log"
@@ -54,7 +53,7 @@ func (network *RaftNetwork) StartPeriodicRefresh() {
 			case <-ticker.C:
 				network.mu.Lock()
 				network.RefreshPeerData(false)
-				utils.PrintAllPeers(network)
+				PrintAllPeers(network)
 				network.mu.Unlock()
 			}
 		}
