@@ -2,13 +2,16 @@ package network
 
 import (
 	"Raft/config"
+	pb "Raft/proto"
+	"context"
+	"fmt"
 	"log"
-	"net/rpc"
 	"strconv"
 	"sync"
 	"time"
 
 	"golang.org/x/exp/rand"
+	"google.golang.org/grpc"
 )
 
 type peerData struct {
@@ -89,27 +92,71 @@ func (network *RaftNetwork) RefreshPeerData(initialisation bool) {
 		if network.isBootNode {
 			return
 		} else {
-			err := MakeRPCRequest(network.bootNodeEndpoint, network.bootNodePort, "RaftRPCServer.GetRaftNetwork", &ExampleArgs{}, network)
+			res, err := MakeGetRaftNetworkRequest(network.bootNodeEndpoint, network.bootNodePort, network)
 			if err != nil {
 				log.Fatal("Error in getting network data from boot node")
+				return
 			}
+			UpdateRaftNetworkPeers(network, res)
+			PrintAllPeers(network)
 		}
 	} else {
 		// Get data from any known node
 		for _, peer := range network.Peers {
-			err := MakeRPCRequest(peer.endpoint, peer.port, "RaftRPCServer.GetRaftNetwork", &ExampleArgs{}, network)
+			res, err := MakeGetRaftNetworkRequest(peer.endpoint, peer.port, network)
 			if err != nil {
 				log.Fatal("Error in getting network data from known node")
+				return
 			}
+			UpdateRaftNetworkPeers(network, res)
+			PrintAllPeers(network)
 		}
 	}
 }
 
-func MakeRPCRequest(endpoint string, port int, method string, args interface{}, reply interface{}) error {
-	client, err := rpc.DialHTTP("tcp", endpoint+":"+strconv.Itoa(port))
-	if err != nil {
-		log.Fatal("dialing:", err)
+func UpdateRaftNetworkPeers(network *RaftNetwork, response *pb.RaftNetworkDataResponse) {
+
+	for peerId, peerD := range response.Peers {
+		network.Peers[peerId] = peerData{
+			endpoint: peerD.Endpoint,
+			port:     int(peerD.Port),
+		}
 	}
-	err = client.Call(method, args, reply)
-	return err
+}
+
+func MakeGetRaftNetworkRequest(endpoint string, port int, network *RaftNetwork) (*pb.RaftNetworkDataResponse, error) {
+	conn, err := grpc.Dial(endpoint+":"+strconv.Itoa(port), grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("Failed to connect: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewRaftServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	// Convert network.Peers to the expected type
+	peers := make(map[string]*pb.PeerData)
+	for key, value := range network.Peers {
+		peers[key] = &pb.PeerData{
+			Endpoint: value.endpoint,
+			Port:     int32(value.port),
+		}
+	}
+
+	response, err := client.GetRaftNetworkData(ctx, &pb.RaftNetworkDataRequest{FromPeerId: network.PeerId, Peers: peers})
+	if err != nil {
+		log.Fatalf("Error calling GetRaftNetwork: %v", err)
+	}
+
+	log.Printf("Response from server: %s", response.PeerId)
+	return response, nil
+}
+
+func PrintAllPeers(network *RaftNetwork) {
+
+	fmt.Println("Peers in RaftNetwork Id: ", network.PeerId)
+	for peerId, peer := range network.Peers {
+		fmt.Printf("PeerId: %s, Endpoint: %s, Port: %d\n", peerId, peer.endpoint, peer.port)
+	}
 }

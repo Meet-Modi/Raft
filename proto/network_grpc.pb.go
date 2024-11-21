@@ -19,101 +19,101 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RaftServer_GetRaftNetworkData_FullMethodName = "/network.RaftServer/GetRaftNetworkData"
+	RaftService_GetRaftNetworkData_FullMethodName = "/network.RaftService/GetRaftNetworkData"
 )
 
-// RaftServerClient is the client API for RaftServer service.
+// RaftServiceClient is the client API for RaftService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type RaftServerClient interface {
+type RaftServiceClient interface {
 	GetRaftNetworkData(ctx context.Context, in *RaftNetworkDataRequest, opts ...grpc.CallOption) (*RaftNetworkDataResponse, error)
 }
 
-type raftServerClient struct {
+type raftServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewRaftServerClient(cc grpc.ClientConnInterface) RaftServerClient {
-	return &raftServerClient{cc}
+func NewRaftServiceClient(cc grpc.ClientConnInterface) RaftServiceClient {
+	return &raftServiceClient{cc}
 }
 
-func (c *raftServerClient) GetRaftNetworkData(ctx context.Context, in *RaftNetworkDataRequest, opts ...grpc.CallOption) (*RaftNetworkDataResponse, error) {
+func (c *raftServiceClient) GetRaftNetworkData(ctx context.Context, in *RaftNetworkDataRequest, opts ...grpc.CallOption) (*RaftNetworkDataResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RaftNetworkDataResponse)
-	err := c.cc.Invoke(ctx, RaftServer_GetRaftNetworkData_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, RaftService_GetRaftNetworkData_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// RaftServerServer is the server API for RaftServer service.
-// All implementations must embed UnimplementedRaftServerServer
+// RaftServiceServer is the server API for RaftService service.
+// All implementations must embed UnimplementedRaftServiceServer
 // for forward compatibility.
-type RaftServerServer interface {
+type RaftServiceServer interface {
 	GetRaftNetworkData(context.Context, *RaftNetworkDataRequest) (*RaftNetworkDataResponse, error)
-	mustEmbedUnimplementedRaftServerServer()
+	mustEmbedUnimplementedRaftServiceServer()
 }
 
-// UnimplementedRaftServerServer must be embedded to have
+// UnimplementedRaftServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedRaftServerServer struct{}
+type UnimplementedRaftServiceServer struct{}
 
-func (UnimplementedRaftServerServer) GetRaftNetworkData(context.Context, *RaftNetworkDataRequest) (*RaftNetworkDataResponse, error) {
+func (UnimplementedRaftServiceServer) GetRaftNetworkData(context.Context, *RaftNetworkDataRequest) (*RaftNetworkDataResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRaftNetworkData not implemented")
 }
-func (UnimplementedRaftServerServer) mustEmbedUnimplementedRaftServerServer() {}
-func (UnimplementedRaftServerServer) testEmbeddedByValue()                    {}
+func (UnimplementedRaftServiceServer) mustEmbedUnimplementedRaftServiceServer() {}
+func (UnimplementedRaftServiceServer) testEmbeddedByValue()                     {}
 
-// UnsafeRaftServerServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to RaftServerServer will
+// UnsafeRaftServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RaftServiceServer will
 // result in compilation errors.
-type UnsafeRaftServerServer interface {
-	mustEmbedUnimplementedRaftServerServer()
+type UnsafeRaftServiceServer interface {
+	mustEmbedUnimplementedRaftServiceServer()
 }
 
-func RegisterRaftServerServer(s grpc.ServiceRegistrar, srv RaftServerServer) {
-	// If the following call pancis, it indicates UnimplementedRaftServerServer was
+func RegisterRaftServiceServer(s grpc.ServiceRegistrar, srv RaftServiceServer) {
+	// If the following call pancis, it indicates UnimplementedRaftServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&RaftServer_ServiceDesc, srv)
+	s.RegisterService(&RaftService_ServiceDesc, srv)
 }
 
-func _RaftServer_GetRaftNetworkData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _RaftService_GetRaftNetworkData_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RaftNetworkDataRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RaftServerServer).GetRaftNetworkData(ctx, in)
+		return srv.(RaftServiceServer).GetRaftNetworkData(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RaftServer_GetRaftNetworkData_FullMethodName,
+		FullMethod: RaftService_GetRaftNetworkData_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RaftServerServer).GetRaftNetworkData(ctx, req.(*RaftNetworkDataRequest))
+		return srv.(RaftServiceServer).GetRaftNetworkData(ctx, req.(*RaftNetworkDataRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// RaftServer_ServiceDesc is the grpc.ServiceDesc for RaftServer service.
+// RaftService_ServiceDesc is the grpc.ServiceDesc for RaftService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var RaftServer_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "network.RaftServer",
-	HandlerType: (*RaftServerServer)(nil),
+var RaftService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "network.RaftService",
+	HandlerType: (*RaftServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetRaftNetworkData",
-			Handler:    _RaftServer_GetRaftNetworkData_Handler,
+			Handler:    _RaftService_GetRaftNetworkData_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
