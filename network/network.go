@@ -2,10 +2,10 @@ package network
 
 import (
 	"Raft/config"
-	"fmt"
 	"log"
 	"net/rpc"
 	"strconv"
+	"sync"
 	"time"
 
 	"golang.org/x/exp/rand"
@@ -17,6 +17,7 @@ type peerData struct {
 }
 
 type RaftNetwork struct {
+	mu                sync.Mutex
 	PeerId            string
 	Peers             map[string]peerData
 	CurrentLeaderId   string
@@ -37,11 +38,13 @@ func GenerateRaftPeerId() string {
 	}
 
 	result = append([]byte(strconv.FormatUint(time, 10)), result...)
-	fmt.Println("Raft Node name : ", string(result))
 	return string(result)
 }
 
 func (network *RaftNetwork) AllocateAvailableEndpoint() error {
+	network.mu.Lock()
+	defer network.mu.Unlock()
+
 	if network.isBootNode {
 		network.Peers[network.PeerId] = peerData{
 			port:     config.BootNodePort,
