@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,6 +45,22 @@ func GenerateRaftPeerId() string {
 	return string(result)
 }
 
+func (network *RaftNetwork) StartPeriodicRefresh() {
+	ticker := time.NewTicker(5 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				network.mu.Lock()
+				network.RefreshPeerData(false)
+				PrintAllPeers(network)
+				network.mu.Unlock()
+			}
+		}
+
+	}()
+}
+
 func (network *RaftNetwork) AllocateAvailableEndpoint() error {
 	network.mu.Lock()
 	defer network.mu.Unlock()
@@ -78,7 +95,6 @@ func (network *RaftNetwork) AllocateAvailableEndpoint() error {
 			break
 		}
 	}
-
 	return nil
 }
 
@@ -98,24 +114,24 @@ func (network *RaftNetwork) RefreshPeerData(initialisation bool) {
 				return
 			}
 			UpdateRaftNetworkPeers(network, res)
-			PrintAllPeers(network)
 		}
 	} else {
 		// Get data from any known node
-		for _, peer := range network.Peers {
+		for key, peer := range network.Peers {
+			if key == network.PeerId {
+				continue
+			}
 			res, err := MakeGetRaftNetworkRequest(peer.endpoint, peer.port, network)
 			if err != nil {
 				log.Fatal("Error in getting network data from known node")
 				return
 			}
 			UpdateRaftNetworkPeers(network, res)
-			PrintAllPeers(network)
 		}
 	}
 }
 
 func UpdateRaftNetworkPeers(network *RaftNetwork, response *pb.RaftNetworkDataResponse) {
-
 	for peerId, peerD := range response.Peers {
 		network.Peers[peerId] = peerData{
 			endpoint: peerD.Endpoint,
@@ -154,9 +170,10 @@ func MakeGetRaftNetworkRequest(endpoint string, port int, network *RaftNetwork) 
 }
 
 func PrintAllPeers(network *RaftNetwork) {
-
-	fmt.Println("Peers in RaftNetwork Id: ", network.PeerId)
+	fmt.Printf("Peers in Id: %s\n", network.PeerId)
+	fmt.Printf("%-20s %-20s %-10s\n", "PeerId", "Endpoint", "Port")
+	fmt.Println(strings.Repeat("-", 50))
 	for peerId, peer := range network.Peers {
-		fmt.Printf("PeerId: %s, Endpoint: %s, Port: %d\n", peerId, peer.endpoint, peer.port)
+		fmt.Printf("%-20s %-20s %-10d\n", peerId, peer.endpoint, peer.port)
 	}
 }

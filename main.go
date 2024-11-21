@@ -25,5 +25,9 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
+
 	fmt.Println("Raft is here!!")
+
+	// Block the main function indefinitely
+	select {}
 }

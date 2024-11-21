@@ -49,6 +49,7 @@ func InitialiseRaftServer(rn *consensus.RaftNode, isBootNode bool) (*RaftRPCServ
 	}
 
 	err := RaftRPCService.raftNetwork.AllocateAvailableEndpoint()
+	// After allocating can do conflict checking with other nodes for race condition?
 	if err != nil {
 		fmt.Println("Error in allocating endpoint")
 		return nil, err
@@ -64,13 +65,17 @@ func InitialiseRaftServer(rn *consensus.RaftNode, isBootNode bool) (*RaftRPCServ
 
 	s := grpc.NewServer()
 	pb.RegisterRaftServiceServer(s, RaftRPCService)
-	log.Printf("gRPC server listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+
+	// Run the gRPC server in a separate goroutine
+	go func() {
+		if err := s.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %v", err)
+		}
+	}()
 
 	fmt.Println("Raft Node ", RaftRPCService.raftNetwork.PeerId, " is listening on port : ", RaftRPCService.raftNetwork.Peers[RaftRPCService.raftNetwork.PeerId].port)
-
+	PrintAllPeers(RaftRPCService.raftNetwork)
+	RaftRPCService.raftNetwork.StartPeriodicRefresh()
 	return RaftRPCService, nil
 }
 
