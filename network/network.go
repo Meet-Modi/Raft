@@ -3,6 +3,7 @@ package network
 import (
 	"Raft/config"
 	pb "Raft/proto"
+	"Raft/utils"
 	"context"
 	"fmt"
 	"log"
@@ -16,8 +17,8 @@ import (
 )
 
 type peerData struct {
-	endpoint string
-	port     int
+	Endpoint string
+	Port     int
 }
 
 type RaftNetwork struct {
@@ -53,7 +54,7 @@ func (network *RaftNetwork) StartPeriodicRefresh() {
 			case <-ticker.C:
 				network.mu.Lock()
 				network.RefreshPeerData(false)
-				PrintAllPeers(network)
+				utils.PrintAllPeers(network)
 				network.mu.Unlock()
 			}
 		}
@@ -69,8 +70,8 @@ func (network *RaftNetwork) AllocateAvailableEndpoint() error {
 
 	if network.isBootNode {
 		network.Peers[network.PeerId] = peerData{
-			port:     config.BootNodePort,
-			endpoint: config.BootNodeURI,
+			Port:     config.BootNodePort,
+			Endpoint: config.BootNodeURI,
 		}
 		return nil
 	}
@@ -78,7 +79,7 @@ func (network *RaftNetwork) AllocateAvailableEndpoint() error {
 	// Create a set of used ports for faster lookup
 	usedPorts := make(map[int]struct{})
 	for _, peer := range network.Peers {
-		usedPorts[peer.port] = struct{}{}
+		usedPorts[peer.Port] = struct{}{}
 	}
 
 	// Seed the random number generator once
@@ -89,8 +90,8 @@ func (network *RaftNetwork) AllocateAvailableEndpoint() error {
 		if _, found := usedPorts[port]; !found {
 			// Port is not in use, assign it
 			network.Peers[network.PeerId] = peerData{
-				port:     port,
-				endpoint: config.NetworkURI,
+				Port:     port,
+				Endpoint: config.NetworkURI,
 			}
 			break
 		}
@@ -121,7 +122,7 @@ func (network *RaftNetwork) RefreshPeerData(initialisation bool) {
 			if key == network.PeerId {
 				continue
 			}
-			res, err := MakeGetRaftNetworkRequest(peer.endpoint, peer.port, network)
+			res, err := MakeGetRaftNetworkRequest(peer.Endpoint, peer.Port, network)
 			if err != nil {
 				log.Fatal("Error in getting network data from known node")
 				return
@@ -134,8 +135,8 @@ func (network *RaftNetwork) RefreshPeerData(initialisation bool) {
 func UpdateRaftNetworkPeers(network *RaftNetwork, response *pb.RaftNetworkDataResponse) {
 	for peerId, peerD := range response.Peers {
 		network.Peers[peerId] = peerData{
-			endpoint: peerD.Endpoint,
-			port:     int(peerD.Port),
+			Endpoint: peerD.Endpoint,
+			Port:     int(peerD.Port),
 		}
 	}
 }
@@ -155,8 +156,8 @@ func MakeGetRaftNetworkRequest(endpoint string, port int, network *RaftNetwork) 
 	peers := make(map[string]*pb.PeerData)
 	for key, value := range network.Peers {
 		peers[key] = &pb.PeerData{
-			Endpoint: value.endpoint,
-			Port:     int32(value.port),
+			Endpoint: value.Endpoint,
+			Port:     int32(value.Port),
 		}
 	}
 
@@ -174,6 +175,6 @@ func PrintAllPeers(network *RaftNetwork) {
 	fmt.Printf("%-20s %-20s %-10s\n", "PeerId", "Endpoint", "Port")
 	fmt.Println(strings.Repeat("-", 50))
 	for peerId, peer := range network.Peers {
-		fmt.Printf("%-20s %-20s %-10d\n", peerId, peer.endpoint, peer.port)
+		fmt.Printf("%-20s %-20s %-10d\n", peerId, peer.Endpoint, peer.Port)
 	}
 }

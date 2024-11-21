@@ -55,8 +55,8 @@ func InitialiseRaftServer(rn *consensus.RaftNode, isBootNode bool) (*RaftRPCServ
 		return nil, err
 	}
 
-	endpoint := RaftRPCService.raftNetwork.Peers[RaftRPCService.raftNetwork.PeerId].endpoint
-	port := strconv.Itoa(RaftRPCService.raftNetwork.Peers[RaftRPCService.raftNetwork.PeerId].port)
+	endpoint := RaftRPCService.raftNetwork.Peers[RaftRPCService.raftNetwork.PeerId].Endpoint
+	port := strconv.Itoa(RaftRPCService.raftNetwork.Peers[RaftRPCService.raftNetwork.PeerId].Port)
 
 	lis, err := net.Listen("tcp", endpoint+":"+port)
 	if err != nil {
@@ -73,7 +73,7 @@ func InitialiseRaftServer(rn *consensus.RaftNode, isBootNode bool) (*RaftRPCServ
 		}
 	}()
 
-	fmt.Println("Raft Node ", RaftRPCService.raftNetwork.PeerId, " is listening on port : ", RaftRPCService.raftNetwork.Peers[RaftRPCService.raftNetwork.PeerId].port)
+	fmt.Println("Raft Node ", RaftRPCService.raftNetwork.PeerId, " is listening on port : ", RaftRPCService.raftNetwork.Peers[RaftRPCService.raftNetwork.PeerId].Port)
 	PrintAllPeers(RaftRPCService.raftNetwork)
 	RaftRPCService.raftNetwork.StartPeriodicRefresh()
 	return RaftRPCService, nil
@@ -99,21 +99,21 @@ func (s *RaftRPCService) GetRaftNetworkData(ctx context.Context, req *pb.RaftNet
 
 		if _, exists := s.raftNetwork.Peers[req.FromPeerId]; !exists {
 			s.raftNetwork.Peers[req.FromPeerId] = peerData{
-				endpoint: req.Peers[req.FromPeerId].Endpoint,
-				port:     int(req.Peers[req.FromPeerId].Port),
+				Endpoint: req.Peers[req.FromPeerId].Endpoint,
+				Port:     int(req.Peers[req.FromPeerId].Port),
 			}
 		} else {
 			s.raftNetwork.Peers[req.FromPeerId] = peerData{
-				endpoint: req.Peers[req.FromPeerId].Endpoint,
-				port:     int(req.Peers[req.FromPeerId].Port),
+				Endpoint: req.Peers[req.FromPeerId].Endpoint,
+				Port:     int(req.Peers[req.FromPeerId].Port),
 			}
 		}
 
 		// Update any entries in the table
 		for peerId, peerD := range req.Peers {
 			s.raftNetwork.Peers[peerId] = peerData{
-				endpoint: peerD.Endpoint,
-				port:     int(peerD.Port),
+				Endpoint: peerD.Endpoint,
+				Port:     int(peerD.Port),
 			}
 		}
 	}
@@ -122,8 +122,8 @@ func (s *RaftRPCService) GetRaftNetworkData(ctx context.Context, req *pb.RaftNet
 	peers := make(map[string]*pb.PeerData)
 	for key, value := range s.raftNetwork.Peers {
 		peers[key] = &pb.PeerData{
-			Endpoint: value.endpoint,
-			Port:     int32(value.port),
+			Endpoint: value.Endpoint,
+			Port:     int32(value.Port),
 		}
 	}
 
