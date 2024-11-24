@@ -19,14 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DiscoveryService_DiscoverPeers_FullMethodName = "/gossip.DiscoveryService/DiscoverPeers"
+	DiscoveryService_ServeDiscoverPeers_FullMethodName = "/gossip.DiscoveryService/ServeDiscoverPeers"
 )
 
 // DiscoveryServiceClient is the client API for DiscoveryService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DiscoveryServiceClient interface {
-	DiscoverPeers(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryDataResponse, error)
+	ServeDiscoverPeers(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryDataResponse, error)
 }
 
 type discoveryServiceClient struct {
@@ -37,10 +37,10 @@ func NewDiscoveryServiceClient(cc grpc.ClientConnInterface) DiscoveryServiceClie
 	return &discoveryServiceClient{cc}
 }
 
-func (c *discoveryServiceClient) DiscoverPeers(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryDataResponse, error) {
+func (c *discoveryServiceClient) ServeDiscoverPeers(ctx context.Context, in *DiscoveryRequest, opts ...grpc.CallOption) (*DiscoveryDataResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DiscoveryDataResponse)
-	err := c.cc.Invoke(ctx, DiscoveryService_DiscoverPeers_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, DiscoveryService_ServeDiscoverPeers_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (c *discoveryServiceClient) DiscoverPeers(ctx context.Context, in *Discover
 // All implementations must embed UnimplementedDiscoveryServiceServer
 // for forward compatibility.
 type DiscoveryServiceServer interface {
-	DiscoverPeers(context.Context, *DiscoveryRequest) (*DiscoveryDataResponse, error)
+	ServeDiscoverPeers(context.Context, *DiscoveryRequest) (*DiscoveryDataResponse, error)
 	mustEmbedUnimplementedDiscoveryServiceServer()
 }
 
@@ -62,8 +62,8 @@ type DiscoveryServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedDiscoveryServiceServer struct{}
 
-func (UnimplementedDiscoveryServiceServer) DiscoverPeers(context.Context, *DiscoveryRequest) (*DiscoveryDataResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DiscoverPeers not implemented")
+func (UnimplementedDiscoveryServiceServer) ServeDiscoverPeers(context.Context, *DiscoveryRequest) (*DiscoveryDataResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ServeDiscoverPeers not implemented")
 }
 func (UnimplementedDiscoveryServiceServer) mustEmbedUnimplementedDiscoveryServiceServer() {}
 func (UnimplementedDiscoveryServiceServer) testEmbeddedByValue()                          {}
@@ -86,20 +86,20 @@ func RegisterDiscoveryServiceServer(s grpc.ServiceRegistrar, srv DiscoveryServic
 	s.RegisterService(&DiscoveryService_ServiceDesc, srv)
 }
 
-func _DiscoveryService_DiscoverPeers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _DiscoveryService_ServeDiscoverPeers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DiscoveryRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DiscoveryServiceServer).DiscoverPeers(ctx, in)
+		return srv.(DiscoveryServiceServer).ServeDiscoverPeers(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DiscoveryService_DiscoverPeers_FullMethodName,
+		FullMethod: DiscoveryService_ServeDiscoverPeers_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DiscoveryServiceServer).DiscoverPeers(ctx, req.(*DiscoveryRequest))
+		return srv.(DiscoveryServiceServer).ServeDiscoverPeers(ctx, req.(*DiscoveryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -112,8 +112,8 @@ var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*DiscoveryServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "DiscoverPeers",
-			Handler:    _DiscoveryService_DiscoverPeers_Handler,
+			MethodName: "ServeDiscoverPeers",
+			Handler:    _DiscoveryService_ServeDiscoverPeers_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

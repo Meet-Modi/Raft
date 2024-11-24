@@ -52,12 +52,12 @@ func (ds *GossipDiscoveryService) RefreshPeerData(initialisation bool) {
 		if ds.PeerId != ds.BootNodeId {
 			// Get the peer data from the boot node
 			// Add all the peer data to the peer list
-
+			ds.StartDiscovery()
 		}
 	}
 }
 
-func (ds *GossipDiscoveryService) MakeDiscoveryRequest() {
+func (ds *GossipDiscoveryService) StartDiscovery() {
 	// This function calls DiscoverPeers on any known node
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
@@ -88,7 +88,7 @@ func (ds *GossipDiscoveryService) MakeDiscoveryRequest() {
 
 	conn, err := grpc.DialContext(ctx, ds.Peers[peerId].URI, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		log.Fatalf("Error in dialing the peer", err)
+		log.Fatalf("Error in dialing the peer: %v", err)
 		// TODO: delete(ds.Peers, peerId)
 		// TODO: Can write another parellel process to delete the inactive peers
 		return
@@ -108,9 +108,9 @@ func (ds *GossipDiscoveryService) MakeDiscoveryRequest() {
 		MyPeers: myPeers,
 	}
 
-	response, err := client.DiscoverPeers(ctx, request)
+	response, err := client.ServeDiscoverPeers(ctx, request)
 	if err != nil {
-		log.Fatalf("Error in making discovery request", err)
+		log.Fatalf("Error in making discovery request %v", err)
 	}
 
 	log.Printf("Received response from peer %s", response.PeerId)
@@ -125,7 +125,7 @@ func (ds *GossipDiscoveryService) MakeDiscoveryRequest() {
 
 }
 
-func (ds *GossipDiscoveryService) DiscoverPeers(ctx context.Context, in *pb.DiscoveryRequest) (*pb.DiscoveryDataResponse, error) {
+func (ds *GossipDiscoveryService) ServeDiscoverPeers(ctx context.Context, in *pb.DiscoveryRequest) (*pb.DiscoveryDataResponse, error) {
 	// Lock the mutex to ensure thread safety
 	ds.mu.Lock()
 	defer ds.mu.Unlock()

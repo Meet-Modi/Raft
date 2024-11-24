@@ -10,8 +10,8 @@ import (
 )
 
 type DiscoveryService interface {
-	MakeDiscoveryRequest()
-	DiscoverPeers(ctx context.Context, in *pb.DiscoveryRequest) (*pb.DiscoveryDataResponse, error)
+	StartDiscovery()
+	ServeDiscoverPeers(ctx context.Context, in *pb.DiscoveryRequest) (*pb.DiscoveryDataResponse, error)
 }
 
 func NewDiscoveryService() (DiscoveryService, error) {
