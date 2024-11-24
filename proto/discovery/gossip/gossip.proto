@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package gossip;
+
+option go_package = "github.com/meet-modi/Raft/proto/discovery/gossip";
+
+message PeerData {
+    string uri = 1;
+}
+
+message DiscoveryRequest {
+    string peer_id = 1;
+    map<string, PeerData> my_peers = 2;
+}
+
+message DiscoveryDataResponse {
+    string peer_id = 1;
+    map<string, PeerData> peers = 2;
+    string current_leader_id = 3;
+    string boot_node_id = 4;
+}
+
+service DiscoveryService {
+    rpc DiscoverPeers (DiscoveryRequest) returns (DiscoveryDataResponse) {}
+}
