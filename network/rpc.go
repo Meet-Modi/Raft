@@ -5,7 +5,7 @@ import (
 	"Raft/consensus"
 	"Raft/discovery"
 	base_discovery "Raft/discovery/base_discovery"
-	pb "Raft/proto/discovery"
+	pb_discovery "Raft/proto/discovery"
 	"fmt"
 	"log"
 	"net"
@@ -14,11 +14,11 @@ import (
 )
 
 type RaftRPCService struct {
-	raftNode         *consensus.RaftNode
+	RaftState        *consensus.RaftState
 	discoveryService base_discovery.DiscoveryService
 }
 
-func InitialiseRaftServer(rn *consensus.RaftNode) (*RaftRPCService, error) {
+func InitialiseRaftServer(rn *consensus.RaftState) (*RaftRPCService, error) {
 
 	discoveryService, err := discovery.NewDiscoveryService()
 	if err != nil {
@@ -30,7 +30,7 @@ func InitialiseRaftServer(rn *consensus.RaftNode) (*RaftRPCService, error) {
 	server := grpc.NewServer()
 
 	// Register the discovery service with the gRPC server
-	pb.RegisterDiscoveryServiceServer(server, discoveryService.(pb.DiscoveryServiceServer))
+	pb_discovery.RegisterDiscoveryServiceServer(server, discoveryService.(pb_discovery.DiscoveryServiceServer))
 
 	// Listen on the specified port
 	lis, err := net.Listen("tcp", ":"+config.Port)
@@ -48,7 +48,7 @@ func InitialiseRaftServer(rn *consensus.RaftNode) (*RaftRPCService, error) {
 	}()
 
 	return &RaftRPCService{
-		raftNode:         rn,
+		RaftState:        rn,
 		discoveryService: discoveryService,
 	}, nil
 }

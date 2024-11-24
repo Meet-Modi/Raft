@@ -73,7 +73,7 @@ func (ds *GossipDiscoveryService) StartDiscovery() {
 	}
 
 	if len(knownPeers) == 1 && knownPeers[0] == ds.PeerId {
-		log.Println("%s %s No known peers to make a discovery request", knownPeers, ds.PeerId)
+		log.Printf("%s %s No known peers to make a discovery request", knownPeers, ds.PeerId)
 		return
 	}
 

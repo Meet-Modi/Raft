@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package discovery;
 
-option go_package = "github.com/meet-modi/Raft/proto/discovery/gossip";
+option go_package = "github.com/meet-modi/Raft/proto/discovery";
 
 message PeerData {
     string uri = 1;

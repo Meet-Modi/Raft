@@ -9,8 +9,8 @@ import (
 
 func main() {
 
-	raftNode, err := consensus.InitialiseRaftNode()
-	network.InitialiseRaftServer(raftNode)
+	RaftState, err := consensus.InitialiseRaftState()
+	network.InitialiseRaftServer(RaftState)
 
 	if err != nil {
 		os.Exit(1)
