@@ -114,7 +114,7 @@ func (ds *GossipDiscoveryService) StartDiscovery() {
 		MyPeers: myPeers,
 	}
 
-	response, err := client.ServeDiscoverPeers(ctx, request)
+	response, err := client.DiscoverPeers(ctx, request)
 	if err != nil {
 		log.Fatalf("Error in making discovery request %v", err)
 	}
@@ -124,7 +124,7 @@ func (ds *GossipDiscoveryService) StartDiscovery() {
 	}
 }
 
-func (ds *GossipDiscoveryService) ServeDiscoverPeers(ctx context.Context, in *pb.DiscoveryRequest) (*pb.DiscoveryDataResponse, error) {
+func (ds *GossipDiscoveryService) DiscoverPeers(ctx context.Context, in *pb.DiscoveryRequest) (*pb.DiscoveryDataResponse, error) {
 	// Extract the client's IP address from the gRPC context
 	p, ok := peer.FromContext(ctx)
 	var clientIP string

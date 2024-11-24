@@ -37,3 +37,10 @@ func RandomKey(m []string) string {
 	return m[randomIndex]
 
 }
+
+func Min(a, b uint64) uint64 {
+	if a < b {
+		return a
+	}
+	return b
+}

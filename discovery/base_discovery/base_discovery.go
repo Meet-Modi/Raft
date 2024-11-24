@@ -13,5 +13,5 @@ type BaseDiscoveryService struct {
 // DiscoveryService interface defines the methods that need to be implemented
 type DiscoveryService interface {
 	StartDiscovery()
-	ServeDiscoverPeers(ctx context.Context, in *pb.DiscoveryRequest) (*pb.DiscoveryDataResponse, error)
+	DiscoverPeers(ctx context.Context, in *pb.DiscoveryRequest) (*pb.DiscoveryDataResponse, error)
 }
