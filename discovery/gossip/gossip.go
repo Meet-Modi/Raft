@@ -2,7 +2,8 @@ package gossip
 
 import (
 	"Raft/config"
-	pb "Raft/proto/discovery/gossip"
+	basediscovery "Raft/discovery/base_discovery"
+	pb "Raft/proto/discovery"
 	"Raft/utils"
 	"context"
 	"log"
@@ -17,6 +18,7 @@ type PeerData struct {
 }
 
 type GossipDiscoveryService struct {
+	basediscovery.BaseDiscoveryService
 	mu              sync.Mutex
 	PeerId          string
 	Peers           map[string]PeerData

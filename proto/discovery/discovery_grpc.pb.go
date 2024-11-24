@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.28.3
-// source: proto/discovery/gossip/gossip.proto
+// source: proto/discovery/discovery.proto
 
 package gossip
 
@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DiscoveryService_ServeDiscoverPeers_FullMethodName = "/gossip.DiscoveryService/ServeDiscoverPeers"
+	DiscoveryService_ServeDiscoverPeers_FullMethodName = "/discovery.DiscoveryService/ServeDiscoverPeers"
 )
 
 // DiscoveryServiceClient is the client API for DiscoveryService service.
@@ -108,7 +108,7 @@ func _DiscoveryService_ServeDiscoverPeers_Handler(srv interface{}, ctx context.C
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "gossip.DiscoveryService",
+	ServiceName: "discovery.DiscoveryService",
 	HandlerType: (*DiscoveryServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -117,5 +117,5 @@ var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/discovery/gossip/gossip.proto",
+	Metadata: "proto/discovery/discovery.proto",
 }

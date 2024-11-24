@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package gossip;
+package discovery;
 
 option go_package = "github.com/meet-modi/Raft/proto/discovery/gossip";
 

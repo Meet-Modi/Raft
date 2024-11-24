@@ -1,20 +1,14 @@
 package discovery
 
 import (
-	"context"
 	"fmt"
 
 	"Raft/config"
+	basediscovery "Raft/discovery/base_discovery"
 	"Raft/discovery/gossip"
-	pb "Raft/proto/discovery/gossip"
 )
 
-type DiscoveryService interface {
-	StartDiscovery()
-	ServeDiscoverPeers(ctx context.Context, in *pb.DiscoveryRequest) (*pb.DiscoveryDataResponse, error)
-}
-
-func NewDiscoveryService() (DiscoveryService, error) {
+func NewDiscoveryService() (basediscovery.DiscoveryService, error) {
 	switch config.DiscoveryProtocol {
 	case "gossip":
 		return gossip.NewDiscoveryService(config.IsBootNode), nil
