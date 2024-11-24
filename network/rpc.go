@@ -3,9 +3,6 @@ package network
 import (
 	"Raft/config"
 	"Raft/consensus"
-	"Raft/discovery"
-	base_discovery "Raft/discovery/base_discovery"
-	pb_discovery "Raft/proto/discovery"
 	"fmt"
 	"log"
 	"net"
@@ -13,24 +10,19 @@ import (
 	"google.golang.org/grpc"
 )
 
-type RaftRPCService struct {
-	RaftState        *consensus.RaftState
-	discoveryService base_discovery.DiscoveryService
+type RaftServer struct {
+	RaftState *consensus.RaftState
 }
 
-func InitialiseRaftServer(rn *consensus.RaftState) (*RaftRPCService, error) {
-
-	discoveryService, err := discovery.NewDiscoveryService()
-	if err != nil {
-		log.Fatalf("Failed to initialise discovery service: %v", err)
-		return nil, err
-	}
+func InitialiseRaftServer() (*RaftServer, error) {
+	rs, err := consensus.InitialiseRaftState()
 
 	// Create a new gRPC server
 	server := grpc.NewServer()
 
 	// Register the discovery service with the gRPC server
-	pb_discovery.RegisterDiscoveryServiceServer(server, discoveryService.(pb_discovery.DiscoveryServiceServer))
+	// pb_discovery.RegisterDiscoveryServiceServer(server, &rs.DiscoveryService)
+	// pb_consenus.RegisterConsensusServiceServer(server, rs.UnimplementedConsensusServiceServer)
 
 	// Listen on the specified port
 	lis, err := net.Listen("tcp", ":"+config.Port)
@@ -47,8 +39,7 @@ func InitialiseRaftServer(rn *consensus.RaftState) (*RaftRPCService, error) {
 		}
 	}()
 
-	return &RaftRPCService{
-		RaftState:        rn,
-		discoveryService: discoveryService,
+	return &RaftServer{
+		RaftState: rs,
 	}, nil
 }

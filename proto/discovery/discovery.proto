@@ -16,8 +16,7 @@ message DiscoveryRequest {
 message DiscoveryDataResponse {
     string peer_id = 1;
     map<string, PeerData> peers = 2;
-    string current_leader_id = 3;
-    string boot_node_id = 4;
+    string boot_node_id = 3;
 }
 
 service DiscoveryService {
