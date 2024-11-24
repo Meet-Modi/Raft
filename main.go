@@ -7,20 +7,10 @@ import (
 	"os"
 )
 
-func isBootNodeArgsPassed(argsWithoutProg []string) bool {
-	if len(argsWithoutProg) > 0 {
-		if argsWithoutProg[0] == "--bootNode" {
-			return true
-		}
-	}
-	return false
-}
-
 func main() {
-	isBootNode := isBootNodeArgsPassed(os.Args[1:])
 
 	raftNode, err := consensus.InitialiseRaftNode()
-	network.InitialiseRaftServer(raftNode, isBootNode)
+	network.InitialiseRaftServer(raftNode)
 
 	if err != nil {
 		os.Exit(1)

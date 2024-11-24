@@ -22,8 +22,8 @@ FROM alpine:latest
 # Copy the Pre-built binary file from the previous stage
 COPY --from=builder /app/main /app/main
 
-# Expose port 8080 to the outside world
-EXPOSE 8080
+# Expose port 3000 to the outside world
+EXPOSE 3000
 
 # Command to run the executable
 ENTRYPOINT ["/app/main"]
