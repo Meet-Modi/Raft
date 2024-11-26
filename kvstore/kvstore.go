@@ -33,7 +33,7 @@ func (kv *KVStore) Put(ctx context.Context, req *pb.PutRequest) (*pb.PutResponse
 	defer kv.mu.Unlock()
 	kv.store[req.Key] = req.Value
 	kv.RaftState.ApplyComandToStateMachine(fmt.Sprintf("PUT %s %s;", req.Key, req.Value))
-	return &pb.PutResponse{}, nil
+	return &pb.PutResponse{Status: true}, nil
 }
 
 func (kv *KVStore) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
@@ -49,5 +49,5 @@ func (kv *KVStore) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.Delet
 	defer kv.mu.Unlock()
 	delete(kv.store, req.Key)
 	kv.RaftState.ApplyComandToStateMachine(fmt.Sprintf("DELETE %s;", req.Key))
-	return &pb.DeleteResponse{}, nil
+	return &pb.DeleteResponse{Status: true}, nil
 }

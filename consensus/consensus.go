@@ -68,9 +68,7 @@ func InitialiseRaftState() (*RaftState, error) {
 	rs.LogService.PersistLogEntry(logging.LogEntry{Term: rs.currentTerm, Index: 0, Command: command})
 	rs.LastApplied = 0
 
-	if initMode == "Leader" {
-		go rs.StartPeriodicAppends()
-	}
+	go rs.StartPeriodicAppends()
 	return rs, nil
 }
 
@@ -110,14 +108,16 @@ type RequestVoteReply struct {
 }
 
 func (rs *RaftState) StartPeriodicAppends() {
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(time.Millisecond * 100)
 
 	for {
 		select {
 		case <-ticker.C:
-			log.Println("++++++++++Starting periodic Appends++++++++++")
-			rs.GenerateDummyCommandsToExecute()
-			log.Println("++++++++++Finished periodic Appends++++++++++")
+			if rs.Mode == "Leader" {
+				log.Println("++++++++++Starting periodic Appends++++++++++")
+				rs.SendAppendEntriesRPC()
+				log.Println("++++++++++Finished periodic Appends++++++++++")
+			}
 		}
 	}
 }
@@ -126,15 +126,6 @@ func (rs *RaftState) ApplyComandToStateMachine(command string) {
 	// Apply the command to the state machine
 	rs.LogService.PersistLogEntry(logging.LogEntry{Term: rs.currentTerm, Index: rs.LastApplied + 1, Command: command})
 	rs.LastApplied++
-}
-
-func (rs *RaftState) GenerateDummyCommandsToExecute() {
-	command := "COMMAND;"
-	for i := 0; i < 10; i++ {
-		rs.LogService.PersistLogEntry(logging.LogEntry{Term: rs.currentTerm, Index: rs.LastApplied + 1, Command: command})
-		rs.LastApplied++
-	}
-	rs.SendAppendEntriesRPC()
 }
 
 // This function can only be invoked by a leader

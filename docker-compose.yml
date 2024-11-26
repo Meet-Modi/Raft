@@ -12,6 +12,8 @@ services:
       - BOOT_NODE_URI=192.168.100.100:3000
     volumes:
       - ./tmp:/app/tmp
+    ports:
+      - "3000:3000"
     networks:
       custom-network:
         ipv4_address: 192.168.100.100
