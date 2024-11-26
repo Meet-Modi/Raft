@@ -3,6 +3,7 @@ package kvstore
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"Raft/consensus"
@@ -13,7 +14,7 @@ type KVStore struct {
 	mu        sync.Mutex
 	store     map[string]string
 	RaftState *consensus.RaftState
-	pb.UnimplementedKVStoreServiceServer
+	pb.UnimplementedKVStoreServer
 }
 
 func InitialiseKVStore() *KVStore {
@@ -31,8 +32,10 @@ func InitialiseKVStore() *KVStore {
 func (kv *KVStore) Put(ctx context.Context, req *pb.PutRequest) (*pb.PutResponse, error) {
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
+	log.Printf("PUT %s %s;", req.Key, req.Value)
 	kv.store[req.Key] = req.Value
 	kv.RaftState.ApplyComandToStateMachine(fmt.Sprintf("PUT %s %s;", req.Key, req.Value))
+	log.Printf("PUT %s %s;", req.Key, req.Value)
 	return &pb.PutResponse{Status: true}, nil
 }
 

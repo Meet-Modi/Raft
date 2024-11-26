@@ -86,9 +86,7 @@ func (rs *RaftState) StartPeriodicAppends() {
 
 	for range ticker.C {
 		if rs.Mode == "Leader" {
-			log.Println("++++++++++Starting periodic Appends++++++++++")
 			rs.SendAppendEntriesRPC()
-			log.Println("++++++++++Finished periodic Appends++++++++++")
 		}
 	}
 }
@@ -236,6 +234,6 @@ func (rs *RaftState) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequ
 	reply.Term = rs.currentTerm
 	reply.Success = true
 
-	log.Printf("Id: %v , Logs after AppendEntries RPC %v", rs.Id, rs.LogService.Logs)
+	// log.Printf("Id: %v , Logs after AppendEntries RPC %v", rs.Id, rs.LogService.Logs)
 	return reply, nil
 }

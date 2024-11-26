@@ -4,7 +4,7 @@ package kvstore;
 
 option go_package = "github.com/meet-modi/Raft/proto/kvstore";
 
-service KVStoreService {
+service KVStore {
     rpc Put(PutRequest) returns (PutResponse);
     rpc Get(GetRequest) returns (GetResponse);
     rpc Delete(DeleteRequest) returns (DeleteResponse);

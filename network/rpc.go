@@ -30,7 +30,7 @@ func InitialiseRaftServer() (*RaftServer, error) {
 	// Register the discovery service with the gRPC server
 	pb_discovery.RegisterDiscoveryServiceServer(server, kv.RaftState.DiscoveryService)
 	pb_consenus.RegisterConsensusServiceServer(server, kv.RaftState)
-	pb_kvstore.RegisterKVStoreServiceServer(server, kv)
+	pb_kvstore.RegisterKVStoreServer(server, kv)
 
 	// Listen on the specified port
 	lis, err := net.Listen("tcp", ":"+config.Port)
