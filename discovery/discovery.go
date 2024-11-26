@@ -24,6 +24,7 @@ type DiscoveryService struct {
 	PeerId        string
 	Peers         map[string]PeerData
 	BootNodeId    string
+	LeaderId      string
 	Servicestatus bool // This will be used to check if the service data is correct or not.
 	pb.UnimplementedDiscoveryServiceServer
 }
@@ -50,10 +51,10 @@ func (ds *DiscoveryService) StartPeriodicDiscovery() {
 	for {
 		select {
 		case <-ticker.C:
-			log.Println("=========Starting periodic discovery=========")
+			// log.Println("=========Starting periodic discovery=========")
 			ds.StartDiscovery()
-			ds.PrintAllPeers()
-			log.Println("=========Finished periodic discovery=========")
+			// ds.PrintAllPeers()
+			// log.Println("=========Finished periodic discovery=========")
 		}
 	}
 }
@@ -118,6 +119,8 @@ func (ds *DiscoveryService) StartDiscovery() {
 	for peerId, peerData := range response.Peers {
 		ds.Peers[peerId] = PeerData{URI: peerData.Uri}
 	}
+
+	ds.LeaderId = response.LeaderId
 }
 
 func (ds *DiscoveryService) DiscoverPeers(ctx context.Context, in *pb.DiscoveryRequest) (*pb.DiscoveryDataResponse, error) {
@@ -154,10 +157,6 @@ func (ds *DiscoveryService) DiscoverPeers(ctx context.Context, in *pb.DiscoveryR
 		Peers:      peerData,
 		BootNodeId: ds.BootNodeId, // Replace with actual boot node ID
 	}, nil
-}
-
-func (ds *DiscoveryService) GetPeers() map[string]PeerData {
-	return ds.Peers
 }
 
 func (ds *DiscoveryService) PrintAllPeers() {

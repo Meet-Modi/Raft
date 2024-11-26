@@ -1,7 +1,9 @@
 package logging
 
 import (
+	"fmt"
 	"os"
+	"sync"
 )
 
 type LogEntry struct {
@@ -11,26 +13,36 @@ type LogEntry struct {
 }
 
 type LogService struct {
-	Logs             []LogEntry
-	LastAppliedIndex uint64 // 0-based indexing
-	CommitIndex      uint64 // 0-based indexing
-	LogFile          *os.File
+	mu      sync.Mutex
+	Logs    []LogEntry
+	LogFile *os.File
 }
 
-func NewLogService() (*LogService, error) {
+func NewLogService(id string) (*LogService, error) {
 
-	logFileName := "1.txt"
-	file, err := os.Create("tmp/" + logFileName)
+	logFileName := id + ".log"
+	file, err := os.Create("/app/tmp/" + logFileName)
 	if err != nil {
 		panic("Failed to create file: " + err.Error())
 	}
 
-	// defer file.Close()
-
 	return &LogService{
-		LastAppliedIndex: 0,
-		CommitIndex:      0,
-		Logs:             []LogEntry{},
-		LogFile:          file,
+		Logs:    []LogEntry{},
+		LogFile: file,
 	}, nil
+}
+
+func (ls *LogService) PersistLogEntry(entry LogEntry) {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+	ls.Logs = append(ls.Logs, entry)
+	ls.LogFile.WriteString(fmt.Sprintf("%d %d %s\n", entry.Term, entry.Index, entry.Command))
+}
+
+func (ls *LogService) ShutdownHandling() error {
+	err := ls.LogFile.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close log file: %v", err)
+	}
+	return nil
 }
