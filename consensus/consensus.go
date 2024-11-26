@@ -80,44 +80,15 @@ func (rs *RaftState) ShutdownHandling() error {
 	return nil
 }
 
-type AppendEntriesArgs struct {
-	PeerId       string
-	Term         uint64
-	LeaderId     string // Leader's ID should be same as PeerID
-	PrevLogIndex uint64
-	prevLogTerm  uint64
-	Entries      []logging.LogEntry
-	LeaderCommit uint64
-}
-
-type AppendEntriesReply struct {
-	Term    uint64
-	Success bool
-}
-
-type RequestVoteArgs struct {
-	Term         uint64
-	CandidateId  string
-	LastLogIndex uint64
-	LastLogTerm  uint64
-}
-
-type RequestVoteReply struct {
-	Term        uint64
-	VoteGranted bool
-}
-
 func (rs *RaftState) StartPeriodicAppends() {
 	ticker := time.NewTicker(time.Millisecond * 100)
+	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			if rs.Mode == "Leader" {
-				log.Println("++++++++++Starting periodic Appends++++++++++")
-				rs.SendAppendEntriesRPC()
-				log.Println("++++++++++Finished periodic Appends++++++++++")
-			}
+	for range ticker.C {
+		if rs.Mode == "Leader" {
+			log.Println("++++++++++Starting periodic Appends++++++++++")
+			rs.SendAppendEntriesRPC()
+			log.Println("++++++++++Finished periodic Appends++++++++++")
 		}
 	}
 }
@@ -135,7 +106,7 @@ func (rs *RaftState) SendAppendEntriesRPC() error {
 
 	peers := rs.DiscoveryService.Peers
 
-	for peerId, _ := range peers {
+	for peerId, peer := range peers {
 		if peerId == rs.Id {
 			continue
 		}
@@ -165,9 +136,9 @@ func (rs *RaftState) SendAppendEntriesRPC() error {
 
 		// conn, err := grpc.DialContext(ctx, ds.Peers[peerId].URI, grpc.WithInsecure(), grpc.WithBlock())
 		// conn, err := grpc.Dial(ds.Peers[peerId].URI, grpc.WithInsecure())
-		conn, err := grpc.Dial(peers[peerId].URI, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.Dial(peer.URI, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
-			log.Fatalf("Error in dialing the peer %s %v", peers[peerId].URI, err)
+			log.Fatalf("Error in dialing the peer %s %v", peer.URI, err)
 			// TODO: Can write another parellel process to delete the inactive peers
 			return nil
 		}
