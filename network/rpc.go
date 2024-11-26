@@ -3,8 +3,10 @@ package network
 import (
 	"Raft/config"
 	"Raft/consensus"
+	"Raft/kvstore"
 	pb_consenus "Raft/proto/consensus"
 	pb_discovery "Raft/proto/discovery"
+	pb_kvstore "Raft/proto/kvstore"
 	"fmt"
 	"log"
 	"net"
@@ -16,18 +18,19 @@ import (
 )
 
 type RaftServer struct {
-	RaftState *consensus.RaftState
+	KeyValue *kvstore.KVStore
 }
 
 func InitialiseRaftServer() (*RaftServer, error) {
-	rs, err := consensus.InitialiseRaftState()
+	kv := kvstore.InitialiseKVStore()
 
 	// Create a new gRPC server
 	server := grpc.NewServer()
 
 	// Register the discovery service with the gRPC server
-	pb_discovery.RegisterDiscoveryServiceServer(server, rs.DiscoveryService)
-	pb_consenus.RegisterConsensusServiceServer(server, rs)
+	pb_discovery.RegisterDiscoveryServiceServer(server, kv.RaftState.DiscoveryService)
+	pb_consenus.RegisterConsensusServiceServer(server, kv.RaftState)
+	pb_kvstore.RegisterKVStoreServiceServer(server, kv)
 
 	// Listen on the specified port
 	lis, err := net.Listen("tcp", ":"+config.Port)
@@ -47,7 +50,7 @@ func InitialiseRaftServer() (*RaftServer, error) {
 	// ShutdownHandling(rs)
 
 	return &RaftServer{
-		RaftState: rs,
+		KeyValue: kv,
 	}, nil
 }
 

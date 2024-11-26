@@ -57,11 +57,11 @@ func InitialiseRaftState() (*RaftState, error) {
 		LeaderId:         LeaderId,
 		LogService:       logService,
 		CommitIndex:      0,
+		LastApplied:      0,
 		nextIndex:        make(map[string]uint64),
 		matchIndex:       make(map[string]uint64),
 		Mode:             initMode,
 		DiscoveryService: discoveryService,
-		// LastApplied:
 	}
 
 	command := fmt.Sprintf("INITIALISED SERVER %v;", rs.Id)
@@ -120,6 +120,12 @@ func (rs *RaftState) StartPeriodicAppends() {
 			log.Println("++++++++++Finished periodic Appends++++++++++")
 		}
 	}
+}
+
+func (rs *RaftState) ApplyComandToStateMachine(command string) {
+	// Apply the command to the state machine
+	rs.LogService.PersistLogEntry(logging.LogEntry{Term: rs.currentTerm, Index: rs.LastApplied + 1, Command: command})
+	rs.LastApplied++
 }
 
 func (rs *RaftState) GenerateDummyCommandsToExecute() {
