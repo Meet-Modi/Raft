@@ -17,18 +17,20 @@ import (
 )
 
 type RaftState struct {
-	mu               sync.Mutex
-	Id               string                      // Unique ID of the node
-	currentTerm      uint64                      // Persistent state on all servers
-	votedFor         string                      // Persistent state on all servers
-	LeaderId         string                      // Persistent state on all servers
-	LogService       *logging.LogService         // Persistent state on all servers
-	CommitIndex      uint64                      // Volatile state on all servers
-	LastApplied      uint64                      // Volatile state on all servers
-	nextIndex        map[string]uint64           // Volatile state on leaders, reinitialized after election
-	matchIndex       map[string]uint64           // Volatile state on leaders, reinirialized after election
-	Mode             string                      // Leader, Follower, Candidate
-	DiscoveryService *discovery.DiscoveryService // Reference to the discovery service
+	mu                sync.Mutex
+	Id                string                      // Unique ID of the node
+	currentTerm       uint64                      // Persistent state on all servers
+	votedFor          string                      // Persistent state on all servers
+	LeaderId          string                      // Persistent state on all servers
+	LogService        *logging.LogService         // Persistent state on all servers
+	CommitIndex       uint64                      // Volatile state on all servers
+	LastApplied       uint64                      // Volatile state on all servers
+	nextIndex         map[string]uint64           // Volatile state on leaders, reinitialized after election
+	matchIndex        map[string]uint64           // Volatile state on leaders, reinirialized after election
+	Mode              string                      // Leader, Follower, Candidate
+	DiscoveryService  *discovery.DiscoveryService // Reference to the discovery service
+	ElectionTimeoutMs int                         // Election timeout in milliseconds
+	LastHeartbeat     time.Time                   // Last heartbeat received
 	pb.UnimplementedConsensusServiceServer
 }
 
@@ -36,32 +38,32 @@ type RaftState struct {
 // If the node is a boot node, it is initialised as a leader
 // else it is initialised as a follower first.
 func InitialiseRaftState() (*RaftState, error) {
-	var id, initMode, LeaderId string
+	var id, LeaderId string
 	if config.IsBootNode {
 		id = utils.GenerateRaftPeerId(true)
-		initMode = "Leader"
 		LeaderId = utils.GenerateRaftPeerId(true)
 	} else {
 		id = utils.GenerateRaftPeerId(false)
-		initMode = "Follower"
 		LeaderId = ""
 	}
 
 	logService, _ := logging.NewLogService(id)
 	discoveryService := discovery.NewDiscoveryService(id)
+	initMode := "Follower"
 
 	rs := &RaftState{
-		Id:               id,
-		currentTerm:      0,
-		votedFor:         "",
-		LeaderId:         LeaderId,
-		LogService:       logService,
-		CommitIndex:      0,
-		LastApplied:      0,
-		nextIndex:        make(map[string]uint64),
-		matchIndex:       make(map[string]uint64),
-		Mode:             initMode,
-		DiscoveryService: discoveryService,
+		Id:                id,
+		currentTerm:       0,
+		votedFor:          "",
+		LeaderId:          LeaderId,
+		LogService:        logService,
+		CommitIndex:       0,
+		LastApplied:       0,
+		nextIndex:         make(map[string]uint64),
+		matchIndex:        make(map[string]uint64),
+		Mode:              initMode,
+		DiscoveryService:  discoveryService,
+		ElectionTimeoutMs: config.ElectionTimeoutMs,
 	}
 
 	command := fmt.Sprintf("INITIALISED SERVER %v;", rs.Id)
@@ -69,6 +71,7 @@ func InitialiseRaftState() (*RaftState, error) {
 	rs.LastApplied = 0
 
 	go rs.StartPeriodicAppends()
+	go rs.CheckLastHeartbeat()
 	return rs, nil
 }
 
@@ -81,12 +84,13 @@ func (rs *RaftState) ShutdownHandling() error {
 }
 
 func (rs *RaftState) StartPeriodicAppends() {
+	// For sending heartbeats
 	ticker := time.NewTicker(time.Millisecond * 100)
 	defer ticker.Stop()
 
 	for range ticker.C {
 		if rs.Mode == "Leader" {
-			rs.SendAppendEntriesRPC()
+			rs.SendAppendEntries()
 		}
 	}
 }
@@ -98,7 +102,7 @@ func (rs *RaftState) ApplyComandToStateMachine(command string) {
 }
 
 // This function can only be invoked by a leader
-func (rs *RaftState) SendAppendEntriesRPC() error {
+func (rs *RaftState) SendAppendEntries() error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
@@ -179,16 +183,19 @@ func (rs *RaftState) SendAppendEntriesRPC() error {
 	return nil
 }
 
+// This function is called by the leader to send heartbeats and log entries to all followers
 func (rs *RaftState) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequest) (reply *pb.AppendEntriesResponse, err error) {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+
 	if in.LeaderId != rs.LeaderId && rs.LeaderId != "" {
 		log.Fatalf("PeerId should be same as leader ID. Expected leaderId %s %s", in.LeaderId, rs.LeaderId)
 	}
 
 	// TODO : Change this after leader election
 	rs.LeaderId = in.LeaderId
+	rs.LastHeartbeat = time.Now()
 
-	rs.mu.Lock()
-	defer rs.mu.Unlock()
 	reply = &pb.AppendEntriesResponse{}
 
 	// Run validation checks
@@ -235,5 +242,115 @@ func (rs *RaftState) AppendEntries(ctx context.Context, in *pb.AppendEntriesRequ
 	reply.Success = true
 
 	// log.Printf("Id: %v , Logs after AppendEntries RPC %v", rs.Id, rs.LogService.Logs)
+	return reply, nil
+}
+
+func (rs *RaftState) CheckLastHeartbeat() {
+	ticker := time.NewTicker(time.Duration(rs.ElectionTimeoutMs) * time.Millisecond)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		// Check if the last heartbeat received is greater than the election timeout
+		if rs.DiscoveryService.Status && rs.Mode != "Leader" && time.Since(rs.LastHeartbeat) > time.Duration(rs.ElectionTimeoutMs)*time.Millisecond {
+			rs.StartElection()
+			log.Println("Election timeout")
+		}
+	}
+}
+
+func (rs *RaftState) StartElection() {
+	rs.mu.Lock()
+	rs.currentTerm++
+	rs.votedFor = rs.Id
+	rs.Mode = "Candidate"
+	rs.mu.Unlock()
+
+	votes := 1
+	Peers := rs.DiscoveryService.Peers
+	voteCh := make(chan bool, len(Peers))
+
+	for peerId, peer := range Peers {
+		if peerId == rs.Id {
+			continue
+		}
+
+		go rs.sendRequestVote(peer, voteCh)
+	}
+
+	for range Peers {
+		if <-voteCh {
+			votes++
+		}
+		if votes > len(Peers)/2 {
+			rs.mu.Lock()
+			rs.Mode = "Leader"
+			rs.mu.Unlock()
+			go rs.StartPeriodicAppends()
+			return
+		}
+	}
+
+	rs.mu.Lock()
+	rs.Mode = "Follower"
+	rs.mu.Unlock()
+}
+
+func (rs *RaftState) sendRequestVote(peer discovery.PeerData, voteCh chan<- bool) {
+	conn, err := grpc.Dial(peer.URI, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		voteCh <- false
+		return
+	}
+	defer conn.Close()
+
+	client := pb.NewConsensusServiceClient(conn)
+
+	rs.mu.Lock()
+	lastLogIndex := rs.LastApplied
+	lastLogTerm := rs.currentTerm - 1
+	currentTerm := rs.currentTerm
+	rs.mu.Unlock()
+
+	req := &pb.RequestVoteRequest{
+		Term:         currentTerm,
+		CandidateId:  rs.Id,
+		LastLogIndex: lastLogIndex,
+		LastLogTerm:  lastLogTerm,
+	}
+
+	resp, err := client.RequestVote(context.Background(), req)
+	if err != nil || !resp.VoteGranted {
+		voteCh <- false
+		return
+	}
+
+	voteCh <- true
+}
+
+func (rs *RaftState) RequestVote(ctx context.Context, in *pb.RequestVoteRequest) (reply *pb.RequestVoteResponse, err error) {
+	log.Println("Received RequestVote RPC")
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+
+	reply = &pb.RequestVoteResponse{}
+
+	// 1. Reply false if term < currentTerm (§5.1)
+	if in.Term < rs.currentTerm {
+		reply.Term = rs.currentTerm
+		reply.VoteGranted = false
+		return reply, nil
+	}
+
+	// 2. If votedFor is null or candidateId, and candidate’s log is at
+	// least as up-to-date as receiver’s log, grant vote (§5.2, §5.4)
+	if (rs.votedFor == "" || rs.votedFor == in.CandidateId) && (in.LastLogTerm >= rs.currentTerm && in.LastLogIndex >= rs.LastApplied) {
+		rs.votedFor = in.CandidateId
+		reply.Term = rs.currentTerm
+		reply.VoteGranted = true
+		return reply, nil
+	}
+
+	reply.Term = rs.currentTerm
+	reply.VoteGranted = false
 	return reply, nil
 }

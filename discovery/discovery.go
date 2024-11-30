@@ -20,12 +20,12 @@ type PeerData struct {
 }
 
 type DiscoveryService struct {
-	mu            sync.Mutex
-	PeerId        string
-	Peers         map[string]PeerData
-	BootNodeId    string
-	LeaderId      string
-	Servicestatus bool // This will be used to check if the service data is correct or not.
+	mu         sync.Mutex
+	PeerId     string
+	Peers      map[string]PeerData
+	BootNodeId string
+	LeaderId   string
+	Status     bool // This will be used to check if the service data is correct or not.
 	pb.UnimplementedDiscoveryServiceServer
 }
 
@@ -121,6 +121,7 @@ func (ds *DiscoveryService) StartDiscovery() {
 	}
 
 	ds.LeaderId = response.LeaderId
+	ds.Status = true
 }
 
 func (ds *DiscoveryService) DiscoverPeers(ctx context.Context, in *pb.DiscoveryRequest) (*pb.DiscoveryDataResponse, error) {
@@ -151,6 +152,7 @@ func (ds *DiscoveryService) DiscoverPeers(ctx context.Context, in *pb.DiscoveryR
 	for k, v := range ds.Peers {
 		peerData[k] = &pb.PeerData{Uri: v.URI}
 	}
+	ds.Status = true
 
 	return &pb.DiscoveryDataResponse{
 		PeerId:     ds.PeerId,
