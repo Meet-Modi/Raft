@@ -15,7 +15,7 @@ var DiscoveryProtocol = getEnv("DISCOVERY_PROTOCOL", DefaultDiscoveryProtocol)
 var IsBootNode, _ = strconv.ParseBool(getEnv("BOOT_NODE", strconv.FormatBool(DefaultIsBootNode)))
 var Port = getEnv("PORT", DefaultPort)
 
-var ElectionTimeoutMs = 300
+var ElectionTimeoutMs = int64(300)
 var MaxDiscoveryRetries = 3
 
 // getEnv reads an environment variable or returns a default value if not set

@@ -2,7 +2,6 @@ package network
 
 import (
 	"Raft/config"
-	"Raft/consensus"
 	"Raft/kvstore"
 	pb_consenus "Raft/proto/consensus"
 	pb_discovery "Raft/proto/discovery"
@@ -10,9 +9,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"google.golang.org/grpc"
 )
@@ -47,37 +43,7 @@ func InitialiseRaftServer() (*RaftServer, error) {
 		}
 	}()
 
-	// ShutdownHandling(rs)
-
 	return &RaftServer{
 		KeyValue: kv,
 	}, nil
-}
-
-func ShutdownHandling(rs *consensus.RaftState) {
-	// Ensure ShutdownHandling is called on panic
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("Recovered from panic: %v", r)
-			err := rs.ShutdownHandling()
-			if err != nil {
-				log.Fatalf("Failed to shut down Raft state: %v", err)
-			}
-			os.Exit(1)
-		}
-	}()
-
-	// Set up signal handling to gracefully shut down
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigs
-		log.Printf("Received signal: %v. Shutting down...", sig)
-		err := rs.ShutdownHandling()
-		if err != nil {
-			log.Fatalf("Failed to shut down Raft state: %v", err)
-		}
-		os.Exit(0)
-	}()
 }

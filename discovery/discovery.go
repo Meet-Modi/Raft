@@ -38,6 +38,7 @@ func NewDiscoveryService(id string) *DiscoveryService {
 		BootNode:          PeerData{URI: config.BootNodeURI, RetriesCount: 0},
 		Status:            false,
 	}
+	discoveryService.StartDiscovery()
 	go discoveryService.StartPeriodicDiscovery()
 	return discoveryService
 }
@@ -108,7 +109,7 @@ func (ds *DiscoveryService) handleDiscoveryRequestError(peerId string) {
 	log.Printf("Retries count for peer %v is %v", peerId, tempPeerData.RetriesCount)
 	if tempPeerData.RetriesCount > ds.maxRetriesAllowed {
 		delete(ds.Peers, peerId)
-		log.Println("Peer %v removed from the list", peerId)
+		log.Printf("Peer %v removed from the list", peerId)
 	}
 }
 
@@ -169,4 +170,5 @@ func (ds *DiscoveryService) StartDiscovery() {
 		}
 	}
 	log.Printf("Requested discovery from %d peers, total Nodes in network : %d", requestedPeersCount, len(ds.Peers))
+	ds.Status = true
 }

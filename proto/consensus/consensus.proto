@@ -6,17 +6,17 @@ option go_package = "github.com/meet-modi/Raft/proto/consensus";
 
 message LogEntry {
     uint64 term = 1;
-    uint64 index = 2;
+    int64 index = 2;
     string command = 3;
 }
 
 message AppendEntriesRequest {
     uint64 term = 1;
     string leader_id = 2;
-    uint64 prev_log_index = 3;
+    int64 prev_log_index = 3;
     uint64 prev_log_term = 4;
     repeated LogEntry entries = 5;
-    uint64 leader_commit=6;
+    int64 leader_commit=6;
 }
 
 message AppendEntriesResponse {
@@ -27,7 +27,7 @@ message AppendEntriesResponse {
 message RequestVoteRequest {
     uint64 term = 1;
     string candidate_id = 2;
-    uint64 last_log_index = 3;
+    int64 last_log_index = 3;
     uint64 last_log_term = 4;
 }
 
