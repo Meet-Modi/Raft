@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"Raft/config"
 	"Raft/discovery"
 	"Raft/logging"
 	pb "Raft/proto/consensus"
@@ -12,25 +11,26 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/exp/rand"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 type RaftState struct {
-	mu                sync.Mutex
-	Id                string                      // Unique ID of the node
-	currentTerm       uint64                      // Persistent state on all servers
-	votedFor          string                      // Persistent state on all servers
-	LeaderId          string                      // Persistent state on all servers
-	CommitIndex       int64                       // Volatile state on all servers
-	LastApplied       int64                       // Volatile state on all servers
-	nextIndex         map[string]int64            // Volatile state on leaders, reinitialized after election
-	matchIndex        map[string]int64            // Volatile state on leaders, reinirialized after election
-	Mode              string                      // Leader, Follower, Candidate
-	LogService        *logging.LogService         // Persistent state on all servers
-	DiscoveryService  *discovery.DiscoveryService // Reference to the discovery service
-	ElectionTimeoutMs int64                       // Election timeout in milliseconds
-	LastHeartbeat     int64                       // Last heartbeat received: epoch time in milliseconds
+	mu               sync.Mutex
+	Id               string                      // Unique ID of the node
+	currentTerm      uint64                      // Persistent state on all servers
+	votedFor         string                      // Persistent state on all servers
+	LeaderId         string                      // Persistent state on all servers
+	CommitIndex      int64                       // Volatile state on all servers
+	LastApplied      int64                       // Volatile state on all servers
+	nextIndex        map[string]int64            // Volatile state on leaders, reinitialized after election
+	matchIndex       map[string]int64            // Volatile state on leaders, reinirialized after election
+	Mode             string                      // Leader, Follower, Candidate
+	LogService       *logging.LogService         // Persistent state on all servers
+	DiscoveryService *discovery.DiscoveryService // Reference to the discovery service
+	ElectionTimeout  time.Duration               // Election timeout duration
+	LastHeartbeat    int64                       // Last heartbeat received: epoch time in milliseconds
 	pb.UnimplementedConsensusServiceServer
 }
 
@@ -44,28 +44,41 @@ func InitialiseRaftState() (*RaftState, error) {
 	}
 
 	rs := &RaftState{
-		Id:                id,
-		currentTerm:       0,
-		votedFor:          "",
-		LeaderId:          "",
-		CommitIndex:       0,
-		LastApplied:       0,
-		nextIndex:         make(map[string]int64),
-		matchIndex:        make(map[string]int64),
-		Mode:              "Follower",
-		LogService:        logService,
-		DiscoveryService:  discoveryService,
-		ElectionTimeoutMs: config.ElectionTimeoutMs,
+		Id:               id,
+		currentTerm:      0,
+		votedFor:         "",
+		LeaderId:         "",
+		CommitIndex:      0,
+		LastApplied:      0,
+		nextIndex:        make(map[string]int64),
+		matchIndex:       make(map[string]int64),
+		Mode:             "Follower",
+		LogService:       logService,
+		DiscoveryService: discoveryService,
+		ElectionTimeout:  time.Duration(3+rand.Intn(6)) * time.Second,
+		LastHeartbeat:    time.Now().UnixMilli(),
 	}
+
+	log.Printf("Election timeout for node %s is %v", rs.Id, rs.ElectionTimeout)
+
+	rs.LogService.PersistLogEntry(logging.LogEntry{Term: 0, Index: 0, Command: "Initialised"})
+	go rs.CheckLastHeartbeat()
 	return rs, nil
 }
 
 func (rs *RaftState) CheckLastHeartbeat() {
-	if time.Now().UnixMilli()-rs.LastHeartbeat > rs.ElectionTimeoutMs {
-		log.Printf("Election timeout occured at node: %s, starting election", rs.Id)
-		rs.Mode = "Candidate"
-		rs.LastHeartbeat = time.Now().UnixMilli()
-		rs.StartElection()
+	ticker := time.NewTicker(rs.ElectionTimeout)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if time.Since(time.UnixMilli(rs.LastHeartbeat)) > rs.ElectionTimeout {
+			if rs.Mode == "Follower" { // Start election only if the node is in follower mode
+				log.Printf("Election timeout occured at node: %s, starting election", rs.Id)
+				rs.Mode = "Candidate"
+				rs.LastHeartbeat = time.Now().UnixMilli()
+				rs.StartElection()
+			}
+		}
 	}
 }
 
@@ -85,7 +98,6 @@ func (rs *RaftState) StartElection() {
 		if voteResponse.VoteGranted && rs.Mode == "Candidate" { // It is possible that a new leader was elected and this node is still receiving votes
 			votesInFavour++
 		} else {
-
 			if voteResponse.Term > rs.currentTerm {
 				// Abandon election and convert to follower
 				rs.currentTerm = voteResponse.Term
@@ -96,10 +108,11 @@ func (rs *RaftState) StartElection() {
 			}
 		}
 
+		log.Printf("Node : %s Votes in favour: %d, Votes received: %d", rs.Id, votesInFavour, votesReceived)
+
 		if votesInFavour > len(rs.DiscoveryService.Peers)/2 {
 			rs.Mode = "Leader"
-			close(voteCh)
-			return
+			log.Printf("Node : %s has been elected as leader", rs.Id)
 		}
 
 		if votesReceived == len(rs.DiscoveryService.Peers) {
@@ -118,7 +131,7 @@ func (rs *RaftState) BroadcastVoteRequest(voteCh chan<- *pb.RequestVoteResponse)
 }
 
 func (rs *RaftState) SendRequestVote(peer discovery.PeerData, voteCh chan<- *pb.RequestVoteResponse) {
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), rs.ElectionTimeout)
 	defer cancel()
 	defer func() {
 		if r := recover(); r != nil {
@@ -143,7 +156,7 @@ func (rs *RaftState) SendRequestVote(peer discovery.PeerData, voteCh chan<- *pb.
 
 	response, err := client.RequestVote(ctx, request)
 	if err != nil {
-		log.Printf("Error in making Request Vote %v", err)
+		log.Printf("Error in making Request Vote from peer: %s err : %v", rs.Id, err)
 		voteCh <- &pb.RequestVoteResponse{Term: rs.currentTerm, VoteGranted: false}
 	}
 
@@ -160,13 +173,13 @@ func (rs *RaftState) RequestVote(ctx context.Context, request *pb.RequestVoteReq
 	if request.Term > rs.currentTerm {
 		rs.currentTerm = request.Term
 		rs.Mode = "Follower"
-		rs.votedFor = ""
+		rs.votedFor = "" // Reset votedFor as the term has changed
 		rs.LastHeartbeat = time.Now().UnixMilli()
 	}
 
 	lastLogIndex := rs.LastApplied
 	lastLogTerm := rs.LogService.Logs[lastLogIndex].Term
-
+	// Grant vote if the candidate's log is at least as up-to-date as the voter's log
 	if (rs.votedFor == "" || rs.votedFor == request.CandidateId) &&
 		(request.LastLogTerm > lastLogTerm || (request.LastLogTerm == lastLogTerm && request.LastLogIndex >= lastLogIndex)) {
 		rs.votedFor = request.CandidateId
