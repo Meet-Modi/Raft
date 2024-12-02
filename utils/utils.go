@@ -1,17 +1,12 @@
 package utils
 
 import (
-	"strconv"
 	"time"
 
 	"golang.org/x/exp/rand"
 )
 
-func GenerateRaftPeerId(isBootNode bool) string {
-	if isBootNode {
-		return "boot"
-	}
-
+func GenerateRaftPeerId() string {
 	// TODO: It should check with other node names
 	time := uint64(time.Now().UnixMilli())
 	rand.Seed(time)
@@ -21,7 +16,6 @@ func GenerateRaftPeerId(isBootNode bool) string {
 		result[i] = charset[rand.Intn(len(charset))]
 	}
 
-	result = append([]byte(strconv.FormatUint(time, 10)), result...)
 	return string(result)
 }
 

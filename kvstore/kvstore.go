@@ -2,7 +2,6 @@ package kvstore
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"sync"
 
@@ -34,7 +33,6 @@ func (kv *KVStore) Put(ctx context.Context, req *pb.PutRequest) (*pb.PutResponse
 	defer kv.mu.Unlock()
 	log.Printf("PUT %s %s;", req.Key, req.Value)
 	kv.store[req.Key] = req.Value
-	kv.RaftState.ApplyComandToStateMachine(fmt.Sprintf("PUT %s %s;", req.Key, req.Value))
 	log.Printf("PUT %s %s;", req.Key, req.Value)
 	return &pb.PutResponse{Status: true}, nil
 }
@@ -43,7 +41,6 @@ func (kv *KVStore) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
 	value, found := kv.store[req.Key]
-	kv.RaftState.ApplyComandToStateMachine(fmt.Sprintf("GET %s;", req.Key))
 	return &pb.GetResponse{Value: value, Found: found}, nil
 }
 
@@ -51,6 +48,5 @@ func (kv *KVStore) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.Delet
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
 	delete(kv.store, req.Key)
-	kv.RaftState.ApplyComandToStateMachine(fmt.Sprintf("DELETE %s;", req.Key))
 	return &pb.DeleteResponse{Status: true}, nil
 }

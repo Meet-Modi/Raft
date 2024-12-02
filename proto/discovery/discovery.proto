@@ -6,6 +6,7 @@ option go_package = "github.com/meet-modi/Raft/proto/discovery";
 
 message PeerData {
     string uri = 1;
+    int32 retries_count = 2;
 }
 
 message DiscoveryRequest {

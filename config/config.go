@@ -16,6 +16,7 @@ var IsBootNode, _ = strconv.ParseBool(getEnv("BOOT_NODE", strconv.FormatBool(Def
 var Port = getEnv("PORT", DefaultPort)
 
 var ElectionTimeoutMs = 300
+var MaxDiscoveryRetries = 3
 
 // getEnv reads an environment variable or returns a default value if not set
 func getEnv(key, defaultValue string) string {
