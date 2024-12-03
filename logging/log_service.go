@@ -8,7 +8,7 @@ import (
 
 type LogEntry struct {
 	Term    uint64
-	Index   uint64
+	Index   int64
 	Command string
 }
 
