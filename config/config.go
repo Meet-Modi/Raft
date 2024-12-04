@@ -17,6 +17,7 @@ var Port = getEnv("PORT", DefaultPort)
 
 const ElectionTimeoutMs = int64(3)
 const MaxDiscoveryRetries = 3
+const ConsistencyLevel = "strong" // ["weak", "strong"]
 
 // getEnv reads an environment variable or returns a default value if not set
 func getEnv(key, defaultValue string) string {

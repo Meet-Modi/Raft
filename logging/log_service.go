@@ -13,9 +13,10 @@ type LogEntry struct {
 }
 
 type LogService struct {
-	mu      sync.Mutex
-	Logs    []LogEntry
-	LogFile *os.File
+	mu           sync.Mutex
+	Logs         []LogEntry
+	LastLogIndex int64
+	LogFile      *os.File
 }
 
 func NewLogService(id string) (*LogService, error) {
@@ -27,8 +28,9 @@ func NewLogService(id string) (*LogService, error) {
 	}
 
 	return &LogService{
-		Logs:    []LogEntry{},
-		LogFile: file,
+		Logs:         []LogEntry{},
+		LogFile:      file,
+		LastLogIndex: -1,
 	}, nil
 }
 
@@ -36,6 +38,7 @@ func (ls *LogService) PersistLogEntry(entry LogEntry) {
 	ls.mu.Lock()
 	defer ls.mu.Unlock()
 	ls.Logs = append(ls.Logs, entry)
+	ls.LastLogIndex++
 	ls.LogFile.WriteString(fmt.Sprintf("%d %d %s\n", entry.Term, entry.Index, entry.Command))
 }
 

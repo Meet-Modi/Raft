@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"Raft/discovery"
+	"Raft/kvstore"
 	"Raft/logging"
 	pb "Raft/proto/consensus"
 	"Raft/utils"
@@ -29,6 +30,7 @@ type RaftState struct {
 	Mode             string                      // Leader, Follower, Candidate
 	LogService       *logging.LogService         // Persistent state on all servers
 	DiscoveryService *discovery.DiscoveryService // Reference to the discovery service
+	KVStore          *kvstore.KVStore            // Reference to the KVStore
 	ElectionTimeout  time.Duration               // Election timeout duration
 	LastHeartbeat    int64                       // Last heartbeat received: epoch time in milliseconds
 	pb.UnimplementedConsensusServiceServer
@@ -39,14 +41,10 @@ func InitialiseRaftState() (*RaftState, error) {
 
 	logService, _ := logging.NewLogService(id)
 	discoveryService := discovery.NewDiscoveryService(id)
+	kv := kvstore.InitialiseKVStore()
 	if !discoveryService.Status {
 		return nil, fmt.Errorf("failed to initialise discovery service, no point in continuing")
 	}
-
-	// forceTime := 5 * time.Second
-	// if config.IsBootNode {
-	// 	forceTime = 8 * time.Second
-	// }
 
 	rs := &RaftState{
 		Id:               id,
@@ -60,9 +58,9 @@ func InitialiseRaftState() (*RaftState, error) {
 		Mode:             "Follower",
 		LogService:       logService,
 		DiscoveryService: discoveryService,
+		KVStore:          kv,
 		ElectionTimeout:  time.Duration(3+rand.Intn(6)) * time.Second,
-		// ElectionTimeout: forceTime,
-		LastHeartbeat: time.Now().UnixMilli(),
+		LastHeartbeat:    time.Now().UnixMilli(),
 	}
 
 	log.Printf("Election timeout for node %s is %v", rs.Id, rs.ElectionTimeout)
@@ -80,7 +78,7 @@ func (rs *RaftState) SendHeartbeats() {
 	for range ticker.C {
 		if rs.Mode == "Leader" {
 			rs.mu.Lock()
-			rs.BroadCastHeartbeat()
+			rs.StoreAndReplicateWAL("No OP")
 			rs.mu.Unlock()
 		}
 	}
@@ -239,23 +237,79 @@ func (rs *RaftState) BecomeLeader() {
 	rs.nextIndex = make(map[string]int64)
 	rs.matchIndex = make(map[string]int64)
 	for peerId := range rs.DiscoveryService.Peers {
-		rs.nextIndex[peerId] = rs.LastApplied + 1
+		rs.nextIndex[peerId] = rs.LogService.LastLogIndex + 1
 		rs.matchIndex[peerId] = 0
 	}
 	rs.mu.Unlock()
-	rs.BroadCastHeartbeat()
+	rs.StoreAndReplicateWAL("No OP")
 }
 
-func (rs *RaftState) BroadCastHeartbeat() {
-	for peerId, peer := range rs.DiscoveryService.Peers {
+func (rs *RaftState) StoreAndReplicateWAL(command string) bool {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	var wg sync.WaitGroup
+	successCh := make(chan bool, len(rs.DiscoveryService.Peers))
+
+	for peerId, _ := range rs.DiscoveryService.Peers {
 		if peerId != rs.Id {
-			log.Printf("Node : %s sending heartbeat to peer %s", rs.Id, peerId)
-			go rs.SendHeartbeat(peer)
+			wg.Add(1)
+			request := &pb.AppendEntriesRequest{
+				Term:         rs.currentTerm,
+				LeaderId:     rs.Id,
+				PrevLogIndex: rs.matchIndex[peerId],
+				PrevLogTerm:  rs.LogService.Logs[rs.matchIndex[peerId]].Term,
+				LeaderCommit: rs.CommitIndex,
+				Entries:      make([]*pb.LogEntry, 0),
+			}
+
+			request.Entries = make([]*pb.LogEntry, 0)
+			for i := request.PrevLogIndex + 1; i <= rs.LogService.LastLogIndex; i++ {
+				request.Entries = append(request.Entries, &pb.LogEntry{
+					Term:    rs.LogService.Logs[i].Term,
+					Index:   rs.LogService.Logs[i].Index,
+					Command: rs.LogService.Logs[i].Command,
+				})
+			}
+
+			go func(peerId string, request *pb.AppendEntriesRequest) {
+				defer wg.Done()
+				successCh <- rs.SendAppendEntries(peerId, request)
+			}(peerId, request)
 		}
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+	close(successCh)
+
+	// Check if the request was applied to the majority of servers
+	successCount := 1 // Include self
+	for success := range successCh {
+		if success {
+			successCount++
+		}
+	}
+
+	if successCount > len(rs.DiscoveryService.Peers)/2 {
+		log.Printf("Command %s successfully replicated to the majority of servers", command)
+		logEntry := logging.LogEntry{Term: rs.currentTerm, Index: rs.LogService.LastLogIndex + 1, Command: command}
+		rs.LogService.PersistLogEntry(logEntry)
+		rs.CommitIndex = rs.LogService.LastLogIndex
+		return true
+	} else {
+		log.Printf("Command %s failed to replicate to the majority of servers", command)
+		return false
 	}
 }
 
-func (rs *RaftState) SendHeartbeat(peer discovery.PeerData) {
+func (rs *RaftState) StoreAndReplicateEventually(command string) bool {
+	rs.LogService.PersistLogEntry(logging.LogEntry{Term: rs.currentTerm, Index: rs.LastApplied + 1, Command: command})
+	return true
+}
+
+func (rs *RaftState) SendAppendEntries(peerId string, request *pb.AppendEntriesRequest) bool {
+	peer := rs.DiscoveryService.Peers[peerId]
+
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 	defer func() {
@@ -271,25 +325,21 @@ func (rs *RaftState) SendHeartbeat(peer discovery.PeerData) {
 	defer conn.Close()
 	client := pb.NewConsensusServiceClient(conn)
 
-	request := &pb.AppendEntriesRequest{
-		Term:         rs.currentTerm,
-		LeaderId:     rs.Id,
-		PrevLogIndex: rs.LastApplied,
-		PrevLogTerm:  rs.LogService.Logs[rs.LastApplied].Term,
-		LeaderCommit: rs.CommitIndex,
-		Entries:      []*pb.LogEntry{},
-	}
-
 	response, err := client.AppendEntries(ctx, request)
 	if err != nil {
 		log.Printf("Error in making AppendEntries from peer: %s err : %v", rs.Id, err)
 	}
 
+	rs.mu.Lock()
+	rs.nextIndex[peerId] = response.LastLogIndex + 1
+	rs.matchIndex[peerId] = response.LastLogIndex
 	if response.Success {
-		log.Println("Heartbeat success")
+		log.Println("AppendEntries success")
 	} else {
-		log.Println("Heartbeat failed")
+		log.Printf("AppendEntries failed, decrementing nextIndex to %v", response.LastLogIndex+1)
 	}
+	rs.mu.Unlock()
+	return response.Success
 }
 
 func (rs *RaftState) AppendEntries(ctx context.Context, request *pb.AppendEntriesRequest) (*pb.AppendEntriesResponse, error) {
@@ -299,15 +349,15 @@ func (rs *RaftState) AppendEntries(ctx context.Context, request *pb.AppendEntrie
 
 	if request.Term < rs.currentTerm {
 		log.Printf("Node : %s received lower term from peer %s, rejecting", rs.Id, request.LeaderId)
-		return &pb.AppendEntriesResponse{Term: rs.currentTerm, Success: false}, nil
+		return &pb.AppendEntriesResponse{Term: rs.currentTerm, LastLogIndex: rs.LogService.LastLogIndex, Success: false}, nil
 	}
 
 	if request.PrevLogIndex > rs.LastApplied {
-		return &pb.AppendEntriesResponse{Term: rs.currentTerm, Success: false}, nil
+		return &pb.AppendEntriesResponse{Term: rs.currentTerm, LastLogIndex: rs.LogService.LastLogIndex, Success: false}, nil
 	}
 
 	if rs.LogService.Logs[request.PrevLogIndex].Term != request.PrevLogTerm {
-		return &pb.AppendEntriesResponse{Term: rs.currentTerm, Success: false}, nil
+		return &pb.AppendEntriesResponse{Term: rs.currentTerm, LastLogIndex: rs.LogService.LastLogIndex, Success: false}, nil
 	}
 
 	if request.Term > rs.currentTerm {
@@ -320,6 +370,12 @@ func (rs *RaftState) AppendEntries(ctx context.Context, request *pb.AppendEntrie
 
 	rs.LastHeartbeat = time.Now().UnixMilli()
 
+	if len(request.Entries) > 0 && rs.LogService.LastLogIndex > request.PrevLogIndex && rs.LogService.Logs[request.PrevLogIndex].Term != request.PrevLogTerm {
+		// Delete the extra logs that you have on this server
+		rs.LogService.Logs = rs.LogService.Logs[:request.PrevLogIndex]
+		rs.LogService.LastLogIndex = request.PrevLogIndex
+	}
+
 	for _, entry := range request.Entries {
 		rs.LastApplied++
 		rs.LogService.PersistLogEntry(logging.LogEntry{Term: entry.Term, Index: rs.LastApplied, Command: entry.Command})
@@ -329,5 +385,5 @@ func (rs *RaftState) AppendEntries(ctx context.Context, request *pb.AppendEntrie
 		rs.CommitIndex = int64(utils.Min(uint64(request.LeaderCommit), uint64(rs.LastApplied)))
 	}
 
-	return &pb.AppendEntriesResponse{Term: rs.currentTerm, Success: true}, nil
+	return &pb.AppendEntriesResponse{Term: rs.currentTerm, LastLogIndex: rs.LogService.LastLogIndex, Success: true}, nil
 }
