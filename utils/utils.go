@@ -32,7 +32,7 @@ func RandomKey(m []string) string {
 
 }
 
-func Min(a, b uint64) uint64 {
+func Min(a, b int64) int64 {
 	if a < b {
 		return a
 	}

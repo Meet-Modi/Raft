@@ -42,6 +42,13 @@ func (ls *LogService) PersistLogEntry(entry LogEntry) {
 	ls.LogFile.WriteString(fmt.Sprintf("%d %d %s\n", entry.Term, entry.Index, entry.Command))
 }
 
+func (ls *LogService) DeleteLogEntriesFromIndex(index int64) {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+	ls.Logs = ls.Logs[:index+1]
+	ls.LastLogIndex = index
+}
+
 func (ls *LogService) ShutdownHandling() error {
 	err := ls.LogFile.Close()
 	if err != nil {
